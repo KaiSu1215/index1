@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单词选择题 — Vocabulary Quiz</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+}
+
+.container {
+  width: 100%;
+  max-width: 720px;
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06), 0 8px 40px rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ====== TOC ====== */
+.toc-header {
+  text-align: center;
+  margin-bottom: 6px;
+}
+.toc-header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.3px;
+}
+.toc-header .subtitle {
+  color: #94a3b8;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 22px 0 18px;
+}
+
+.unit-card {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px 16px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  position: relative;
+  overflow: hidden;
+}
+.unit-card:hover {
+  border-color: #6366f1;
+  background: #eef2ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(99,102,241,0.12);
+}
+.unit-card:active { transform: scale(0.98); }
+
+.unit-card .unit-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 4px;
+}
+.unit-card .unit-count {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.unit-card.all-card {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+}
+.unit-card.all-card:hover {
+  background: linear-gradient(135deg, #e0e7ff, #ede9fe);
+  box-shadow: 0 4px 20px rgba(99,102,241,0.18);
+}
+.unit-card.all-card .unit-title { color: #4f46e5; }
+
+/* ====== Quiz Area ====== */
+.quiz-area { display: none; }
+
+.progress-wrap { margin-bottom: 22px; }
+.progress-info {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; color: #64748b; font-size: 14px;
+}
+.progress-bar {
+  height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 3px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1); width: 0%;
+}
+
+.back-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 8px; border: 1px solid #e2e8f0;
+  background: #fff; color: #64748b; font-size: 13px; cursor: pointer;
+  font-family: inherit; margin-bottom: 12px; transition: all 0.2s;
+}
+.back-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+
+.card-area { position: relative; min-height: 380px; }
+
+.card {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 18px;
+  padding: 24px 22px;
+  transition: transform 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+}
+.card.slide-left  { transform: translateX(-130%); opacity: 0; }
+.card.slide-right { transform: translateX(130%); opacity: 0; }
+.card.slide-in    { transform: translateX(0); opacity: 1; }
+
+.sentence {
+  font-size: 17px; line-height: 1.8; color: #1e293b;
+  margin-bottom: 24px; padding: 16px 18px;
+  background: #f8fafc; border-radius: 12px;
+  border-left: 4px solid #6366f1;
+}
+.sentence .blank {
+  display: inline-block; min-width: 70px;
+  border-bottom: 3px dashed #a78bfa; color: #7c3aed;
+  padding: 0 4px; margin: 0 2px; font-weight: 600; transition: all 0.3s;
+}
+.sentence .blank.filled        { border-color: #22c55e; color: #16a34a; }
+.sentence .blank.filled-wrong  { border-color: #ef4444; color: #dc2626; }
+
+.options { display: grid; gap: 10px; }
+
+.option-btn {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; background: #f8fafc;
+  border: 1.5px solid #e2e8f0; border-radius: 14px;
+  color: #334155; font-size: 15px; cursor: pointer;
+  transition: all 0.18s ease; text-align: left; font-family: inherit; width: 100%;
+}
+.option-btn:hover:not(.disabled) {
+  background: #eef2ff; border-color: #a5b4fc;
+}
+.option-btn:active:not(.disabled) { transform: scale(0.98); }
+.option-btn.disabled { cursor: default; pointer-events: none; }
+
+.option-btn .letter {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px;
+  background: #e2e8f0; font-weight: 700; font-size: 14px;
+  color: #64748b; flex-shrink: 0; transition: all 0.3s;
+}
+
+.option-btn.correct {
+  background: #f0fdf4; border-color: #22c55e; color: #166534;
+  animation: correctPulse 0.6s ease;
+}
+.option-btn.correct .letter { background: #22c55e; color: #fff; }
+
+.option-btn.wrong {
+  background: #fef2f2; border-color: #ef4444; color: #991b1b;
+  animation: shake 0.5s ease;
+}
+.option-btn.wrong .letter { background: #ef4444; color: #fff; }
+
+.option-btn.reveal-correct {
+  background: #f0fdf4; border-color: #86efac;
+}
+.option-btn.reveal-correct .letter { background: #bbf7d0; color: #16a34a; }
+
+@keyframes correctPulse {
+  0%,100%{transform:scale(1);} 50%{transform:scale(1.02);}
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-8px);} 40%{transform:translateX(8px);}
+  60%{transform:translateX(-6px);} 80%{transform:translateX(4px);}
+}
+
+.feedback {
+  margin-top: 16px; padding: 13px 16px; border-radius: 12px;
+  font-size: 14px; font-weight: 600; text-align: center;
+  display: none; animation: fadeInUp 0.35s ease;
+}
+.feedback.show { display: block; }
+.feedback.correct-fb { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.feedback.wrong-fb   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.nav-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 24px; gap: 12px;
+}
+.nav-btn {
+  padding: 10px 20px; border-radius: 12px; font-size: 14px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid #e2e8f0;
+  background: #fff; color: #475569; transition: all 0.2s;
+  font-family: inherit; display: flex; align-items: center; gap: 6px;
+  position: relative; z-index: 10;
+}
+.nav-btn:hover:not(:disabled) { background: #f1f5f9; border-color: #cbd5e1; }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+.nav-btn.primary {
+  background: #6366f1; border-color: transparent; color: #fff;
+}
+.nav-btn.primary:hover:not(:disabled) { background: #4f46e5; }
+
+.hint-text { color: #94a3b8; font-size: 12px; text-align: center; }
+
+/* ====== Summary ====== */
+.summary-wrap { display: none; animation: fadeInUp 0.5s ease; }
+.summary-wrap .summary { text-align: center; padding: 40px 20px; }
+.summary-icon { font-size: 56px; margin-bottom: 12px; }
+.summary h2 { color: #1e293b; font-size: 24px; margin-bottom: 6px; }
+.summary-score {
+  font-size: 68px; font-weight: 800; color: #6366f1; margin: 10px 0;
+}
+.summary-stats {
+  display: flex; justify-content: center; gap: 20px; margin: 22px 0; flex-wrap: wrap;
+}
+.stat-box {
+  padding: 14px 20px; border-radius: 14px; background: #f8fafc;
+  border: 1px solid #e2e8f0; min-width: 90px;
+}
+.stat-box .stat-num { font-size: 26px; font-weight: 700; }
+.stat-box.correct-stat .stat-num { color: #16a34a; }
+.stat-box.wrong-stat   .stat-num { color: #dc2626; }
+.stat-box.total-stat   .stat-num { color: #6366f1; }
+.stat-box .stat-label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+.summary-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+
+/* ====== Footer ====== */
+.footer {
+  text-align: center; padding-top: 20px;
+  color: #cbd5e1; font-size: 12px; letter-spacing: 0.5px;
+}
+
+/* ====== Responsive ====== */
+@media (max-width: 600px) {
+  .container { padding: 20px 14px; border-radius: 16px; }
+  .unit-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .unit-card { padding: 14px 12px; }
+  .unit-card .unit-title { font-size: 15px; }
+  .sentence { font-size: 15px; padding: 12px 14px; }
+  .option-btn { padding: 11px 12px; font-size: 14px; }
+  .summary-score { font-size: 52px; }
+  .stat-box { padding: 10px 14px; min-width: 75px; }
+  .stat-box .stat-num { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="container" id="app">
+
+  <!-- ====== TOC ====== -->
+  <div id="tocPage">
+    <div class="toc-header">
+      <h1>Vocabulary Quiz</h1>
+      <div class="subtitle">选择一个单元开始答题</div>
+    </div>
+    <div class="unit-grid" id="unitGrid"></div>
+  </div>
+
+  <!-- ====== Quiz ====== -->
+  <div class="quiz-area" id="quizArea">
+    <button class="back-btn" id="backBtn" onclick="goToToc()">← 返回目录</button>
+    <div class="progress-wrap">
+      <div class="progress-info">
+        <span id="progressText">1 / 1</span>
+        <span id="scoreBadge" style="color:#16a34a; display:none;">✓</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+    <div class="card-area">
+      <div class="card slide-in" id="card">
+        <div class="sentence" id="sentenceEl"></div>
+        <div class="options" id="optionsEl"></div>
+        <div class="feedback" id="feedbackEl"></div>
+      </div>
+      <div class="summary-wrap" id="summaryWrap"></div>
+    </div>
+    <div class="nav-row" id="navRow">
+      <button class="nav-btn" id="prevBtn" disabled>← 上一题</button>
+      <span class="hint-text" id="hintEl">← → 键切换</span>
+      <button class="nav-btn primary" id="nextBtn">下一题 →</button>
+    </div>
+  </div>
+
+  <div class="footer" id="footer">作者: Su1kai</div>
+</div>
+
+<script>
+// ===== DATA =====
+const DATA = {"units": [{"id": "Unit 1", "label": "Unit 1", "labelFull": "Unit 1", "total": 22, "questions": [{"sentence": "1) As a result of the increase in defense spending, they have been making _____ progress in strengthening their military force.", "options": {"A": "saves", "B": "drove off", "C": "overlook", "D": "steady"}, "answer": "D", "answerText": "steady"}, {"sentence": "2) The Prime Minister had a harsh attitude to obesity and was determined to _____ a national war against fat.", "options": {"A": "voyage", "B": "wage", "C": "saves", "D": "attest"}, "answer": "B", "answerText": "wage"}, {"sentence": "3) Ancient China _____ on agriculture and led the world in farming for a long time.", "options": {"A": "diagnosed", "B": "fret", "C": "peer", "D": "thrived"}, "answer": "D", "answerText": "thrived"}, {"sentence": "4) Now that the public is more open to diversified diets, vegetarians are no longer _____ as cranks (古怪的人).", "options": {"A": "dismissed", "B": "in strength", "C": "voyage", "D": "dropped into"}, "answer": "A", "answerText": "dismissed"}, {"sentence": "5) In spite of the global drop in malaria (疟疾) cases, there's still a high _____ of it in certain areas.", "options": {"A": "incidence", "B": "apt to", "C": "fashioned", "D": "next to"}, "answer": "A", "answerText": "incidence"}, {"sentence": "6) Many high-level business leaders have long _____ the virtues of reading.", "options": {"A": "keen", "B": "primarily", "C": "scattered", "D": "touted"}, "answer": "D", "answerText": "touted"}, {"sentence": "7) Sedentary (久坐的) behavior can contribute to a(n) _____ in cardiovascular health even in the short term.", "options": {"A": "at his elbow", "B": "distinguish", "C": "deterioration", "D": "settle into"}, "answer": "C", "answerText": "deterioration"}, {"sentence": "8) Protein makes up many major hormones (激素) and antibodies (抗体) in our body. That's why _____ enough protein in your daily diet is important.", "options": {"A": "professed", "B": "lay claim to", "C": "fashioned", "D": "ingesting"}, "answer": "D", "answerText": "ingesting"}, {"sentence": "9) When you _____ with people, you're less likely to struggle with depression and anxiety.", "options": {"A": "counseled", "B": "socialize", "C": "rescue", "D": "primarily"}, "answer": "B", "answerText": "socialize"}, {"sentence": "10) The government is _____ negotiations between the two sides.", "options": {"A": "intervene", "B": "incidence", "C": "professed", "D": "sponsoring"}, "answer": "D", "answerText": "sponsoring"}, {"sentence": "11) It's easy to underestimate the time and effort it takes to properly plan and _____ a successful exhibition.", "options": {"A": "mount", "B": "novelty", "C": "call out", "D": "pass by"}, "answer": "A", "answerText": "mount"}, {"sentence": "12) The team enjoyed only _____ success last season.", "options": {"A": "governed", "B": "moderate", "C": "namely", "D": "By no means"}, "answer": "B", "answerText": "moderate"}, {"sentence": "13) The teacher _____ his students to reduce their screen time.", "options": {"A": "defined", "B": "counseled", "C": "socialize", "D": "warmth"}, "answer": "B", "answerText": "counseled"}, {"sentence": "14) It was too dark for me to _____ the girl from her sister.", "options": {"A": "distinguish", "B": "inevitably", "C": "dropped into", "D": "straightening"}, "answer": "A", "answerText": "distinguish"}, {"sentence": "15) The doctor won't have my test results for a few days, and I'm trying not to _____ about it.", "options": {"A": "tremble", "B": "fret", "C": "kind of", "D": "rescue"}, "answer": "B", "answerText": "fret"}, {"sentence": "1) Critics freely express their opinions and love debating. They are particularly adept at _____ problems and risks that others don't see.", "options": {"A": "keep in mind", "B": "accomplishments", "C": "in large part", "D": "pointing out"}, "answer": "D", "answerText": "pointing out"}, {"sentence": "2) You can pay weekly or monthly — it _____ you.", "options": {"A": "tremble", "B": "delegate", "C": "scattered", "D": "is up to"}, "answer": "D", "answerText": "is up to"}, {"sentence": "3) Because of the different income tax brackets (纳税等级) here, a higher wage is _____ a good thing, as you may end up paying more than you were before.", "options": {"A": "come to heel", "B": "in large part", "C": "not necessarily", "D": "springs from"}, "answer": "C", "answerText": "not necessarily"}, {"sentence": "4) The current tax policy _____ people with a higher income, who, therefore, have a lot of complaints about it.", "options": {"A": "preceded", "B": "is hard on", "C": "grumble", "D": "sponsoring"}, "answer": "B", "answerText": "is hard on"}, {"sentence": "5) There is always a close trade relation between Europe and the UK. Europe _____ nearly half of UK exports.", "options": {"A": "dropped into", "B": "diagnosed", "C": "accounts for", "D": "continuous"}, "answer": "C", "answerText": "accounts for"}, {"sentence": "6) Sandy has _____ about going to the carnival tonight, so I think she'll be disappointed if we don't go.", "options": {"A": "deterioration", "B": "got her hopes up", "C": "take the place of", "D": "draws a distinction"}, "answer": "B", "answerText": "got her hopes up"}, {"sentence": "7) Because of the epidemic, the tourism industry suffered a heavy blow and will not _____ in the coming year.", "options": {"A": "simply", "B": "fare well", "C": "shuffle", "D": "inevitably"}, "answer": "B", "answerText": "fare well"}]}, {"id": "Unit 2", "label": "Unit 2", "labelFull": "Unit 2", "total": 23, "questions": [{"sentence": "1) Developments in technology over the last few years have allowed scientists to _____ into and control our world on the nanoscale (纳米尺度).", "options": {"A": "novelty", "B": "revive", "C": "peer", "D": "simply"}, "answer": "C", "answerText": "peer"}, {"sentence": "2) When I wasn't doing my homework, I would wait on customers, _____ down tables, or clear dirty dishes and bring them back to the kitchen.", "options": {"A": "novelty", "B": "wipe", "C": "simply", "D": "stride"}, "answer": "B", "answerText": "wipe"}, {"sentence": "3) There have been dust storms on Mars that have gotten large enough to _____ the entire planet for days at a time.", "options": {"A": "grumble", "B": "voyage", "C": "engulf", "D": "fare well"}, "answer": "C", "answerText": "engulf"}, {"sentence": "4) You haven't _____ from that chair all afternoon! Get yourself up to do some sports outdoors.", "options": {"A": "regarding", "B": "strengthen", "C": "stirred", "D": "voluntary"}, "answer": "C", "answerText": "stirred"}, {"sentence": "5) Wearing protective gear including goggles (护目镜), a face mask and gloves, the cleaner in the hospital changed the sheets and quilt covers in a two-bed ward (病房), carefully _____ and smoothing them out.", "options": {"A": "straightening", "B": "persistence", "C": "dropped into", "D": "Taking off"}, "answer": "A", "answerText": "straightening"}, {"sentence": "6) After several days of cold rain, Susan was glad to see the winter sun filter through the _____ branches of the trees in front of her window.", "options": {"A": "wage", "B": "keen", "C": "bare", "D": "from"}, "answer": "C", "answerText": "bare"}, {"sentence": "7) After a few weeks' hard work, Johanna was exhausted, and would gratefully _____ herself into her bed for a deep, uninterrupted sleep.", "options": {"A": "voyage", "B": "earnest", "C": "mount", "D": "ease"}, "answer": "D", "answerText": "ease"}, {"sentence": "8) Publicly _____ persons are especially concerned about the impression they make on others.", "options": {"A": "accomplishments", "B": "dropped into", "C": "straightening", "D": "self-conscious"}, "answer": "D", "answerText": "self-conscious"}, {"sentence": "9) The Chinese idiom \"beat the grass to _____ the snake\" means that one's aimless behavior may alert his enemies, thereby giving away his plans or position.", "options": {"A": "startle", "B": "fashioned", "C": "dimension", "D": "voluntary"}, "answer": "A", "answerText": "startle"}, {"sentence": "10) Experts call on more Chinese organizations to work with the UN to accelerate the implementation (实施) of the UN goal of sustainable development and _____ into a better future.", "options": {"A": "startle", "B": "stride", "C": "counseled", "D": "mount"}, "answer": "B", "answerText": "stride"}, {"sentence": "11) The instant _____ business, especially those in fresh food and medicine, has developed rapidly since the outbreak of the pandemic.", "options": {"A": "namely", "B": "is hard on", "C": "delivery", "D": "warmth"}, "answer": "C", "answerText": "delivery"}, {"sentence": "12) As President Xi Jinping stressed, the Chinese people do not provoke (引发) trouble, but we do not fear provocations (挑衅); our legs will not _____ and we will not bow in the face of difficulties and risks.", "options": {"A": "tremble", "B": "trigger", "C": "fashioned", "D": "Taking off"}, "answer": "A", "answerText": "tremble"}, {"sentence": "13) According to this year's No. 1 Central Document, customs such as expensive dowries (嫁妆) and _____ ceremonies should be regulated to cultivate a positive country lifestyle.", "options": {"A": "countered", "B": "look around", "C": "sponsoring", "D": "extravagant"}, "answer": "D", "answerText": "extravagant"}, {"sentence": "14) I heard my father _____ back into the living room with silent anger.", "options": {"A": "addiction", "B": "saves", "C": "wage", "D": "shuffle"}, "answer": "D", "answerText": "shuffle"}, {"sentence": "15) Despite the impact of the pandemic, our people-to-people and cultural exchanges have not been _____. Interactions in culture and among media have been active and productive.", "options": {"A": "voluntary", "B": "interrupted", "C": "is hard on", "D": "inevitably"}, "answer": "B", "answerText": "interrupted"}, {"sentence": "1) On hearing the police sirens (警笛) from the distance, the robbers immediately _____ in a stolen vehicle.", "options": {"A": "hardship", "B": "encounter", "C": "drove off", "D": "dimension"}, "answer": "C", "answerText": "drove off"}, {"sentence": "2) _____ his hat, Aubrey holds it between his face and the sun.", "options": {"A": "tourism", "B": "Taking off", "C": "dismissed", "D": "come to heel"}, "answer": "B", "answerText": "Taking off"}, {"sentence": "3) He heard someone _____ and he turned to find an eight-year-old girl running up to him.", "options": {"A": "as such", "B": "settle into", "C": "apt to", "D": "call out"}, "answer": "D", "answerText": "call out"}, {"sentence": "4) Take time to _____ the place you're visiting and absorb the atmosphere.", "options": {"A": "strengthen", "B": "accounts for", "C": "potentially", "D": "look around"}, "answer": "D", "answerText": "look around"}, {"sentence": "5) Despite all that spending, most of the time, advertising just _____ the background.", "options": {"A": "socialize", "B": "next to", "C": "fades into", "D": "extravagant"}, "answer": "C", "answerText": "fades into"}, {"sentence": "6) At the moment his voice broke on the last word, he felt a sudden weakness in his legs and _____ the nearest chair.", "options": {"A": "arbitrary", "B": "potentially", "C": "come to heel", "D": "dropped into"}, "answer": "D", "answerText": "dropped into"}, {"sentence": "7) Men and women in white wandered along paved paths, alone or _____, sometimes accompanied by people in gray T-shirts.", "options": {"A": "pulled away from", "B": "got her hopes up", "C": "in a different light", "D": "in twos and threes"}, "answer": "D", "answerText": "in twos and threes"}, {"sentence": "8) He watched the taxi depart, _____ the long, beach-side street, and disappear against the gray water.", "options": {"A": "turn onto", "B": "startle", "C": "strengthen", "D": "seized on"}, "answer": "A", "answerText": "turn onto"}]}, {"id": "Unit 3", "label": "Unit 3", "labelFull": "Unit 3", "total": 24, "questions": [{"sentence": "9) Paintwork on the corner of a stairway tends to get scratched as people _____.", "options": {"A": "tourism", "B": "pass by", "C": "sponsoring", "D": "pop up"}, "answer": "B", "answerText": "pass by"}, {"sentence": "1) These students are also members of society. They could not _____ the public interests represented by the organization and others.", "options": {"A": "dismissed", "B": "overlook", "C": "Compassion", "D": "distinction"}, "answer": "B", "answerText": "overlook"}, {"sentence": "2) Ever since that unforgettable experience, I've kept a(n) _____ eye on the night sky on cloudless evenings — and often been rewarded with beautiful views.", "options": {"A": "warmth", "B": "touted", "C": "keen", "D": "tend to"}, "answer": "C", "answerText": "keen"}, {"sentence": "3) My mother is always showing _____ with the less advantaged people when she visits them.", "options": {"A": "generosity", "B": "By no means", "C": "classed", "D": "inevitably"}, "answer": "A", "answerText": "generosity"}, {"sentence": "4) You need not make _____ with the work; you may do it at your leisure and take your own time over it.", "options": {"A": "namely", "B": "dilemma", "C": "defined", "D": "haste"}, "answer": "D", "answerText": "haste"}, {"sentence": "5) This takes us to the artist's main viewpoint: Identity is an unreliable concept; self-image is _____ and reformed over time, influenced by changing circumstances.", "options": {"A": "governed", "B": "fashioned", "C": "strengthen", "D": "accounts for"}, "answer": "B", "answerText": "fashioned"}, {"sentence": "6) I would like to take this opportunity to express my _____ gratitude to the guide for your hard work and patience during the journey.", "options": {"A": "bare", "B": "continuous", "C": "earnest", "D": "socialize"}, "answer": "C", "answerText": "earnest"}, {"sentence": "7) The suspect _____ that he had never been around the building when the accident occurred.", "options": {"A": "earnest", "B": "surface", "C": "professed", "D": "rescue"}, "answer": "C", "answerText": "professed"}, {"sentence": "8) As socialism with Chinese characteristics has entered a new era, our Party must get a new look and make new _____.", "options": {"A": "in large part", "B": "lay claim to", "C": "accomplishments", "D": "springs from"}, "answer": "C", "answerText": "accomplishments"}, {"sentence": "9) All wireless devices may be _____ to interference (干扰), which could affect performance and precision.", "options": {"A": "distinguish", "B": "fashioned", "C": "susceptible", "D": "intervene"}, "answer": "C", "answerText": "susceptible"}, {"sentence": "10) Technology has given rise to many things of _____ which are convenient for people's life.", "options": {"A": "exotic", "B": "strengthen", "C": "Compassion", "D": "novelty"}, "answer": "D", "answerText": "novelty"}, {"sentence": "11) Handling of such data may be _____ by various laws, industry security standards, as well as internal policies of your organization.", "options": {"A": "revive", "B": "governed", "C": "stride", "D": "steady"}, "answer": "B", "answerText": "governed"}, {"sentence": "12) A proposal has a lot of different purposes, but there's only one good way to _____ one: the way that pulls together all of the information in a concise and persuasive way.", "options": {"A": "defined", "B": "touted", "C": "attest", "D": "frame"}, "answer": "D", "answerText": "frame"}, {"sentence": "13) The organization refused to _____ in any labor dispute or become involved in the content of any labor agreement.", "options": {"A": "tourism", "B": "dilemma", "C": "susceptible", "D": "intervene"}, "answer": "D", "answerText": "intervene"}, {"sentence": "14) The children are enjoying playing in the house with the toys _____ everywhere on the floor.", "options": {"A": "scattered", "B": "counseled", "C": "distinction", "D": "drove off"}, "answer": "A", "answerText": "scattered"}, {"sentence": "15) People are more and more _____ of the need to protect our world, so that its riches are not destroyed for future generations.", "options": {"A": "shuffle", "B": "conscious", "C": "is hard on", "D": "counseled"}, "answer": "B", "answerText": "conscious"}, {"sentence": "1) The cost of training the new staff in this company _____ 15% of its spending every year.", "options": {"A": "amounts to", "B": "as such", "C": "classed", "D": "generosity"}, "answer": "A", "answerText": "amounts to"}, {"sentence": "2) In this school, teachers _____ errors and mistakes in the classroom; they believe it is beneficial for students' curiosity and creativity.", "options": {"A": "pulled away from", "B": "in a different light", "C": "draws a distinction", "D": "make allowances for"}, "answer": "D", "answerText": "make allowances for"}, {"sentence": "3) The company is purchasing the steel _____ in case there would be shortage in future supply.", "options": {"A": "in strength", "B": "governed", "C": "come to heel", "D": "overlook"}, "answer": "A", "answerText": "in strength"}, {"sentence": "4) The mother suggested that he place a dictionary _____ in order to use it at his convenience.", "options": {"A": "strengthen", "B": "potentially", "C": "at his elbow", "D": "arbitrary"}, "answer": "C", "answerText": "at his elbow"}, {"sentence": "5) Our growth strategy _____ our basic commitment to providing our customers with superior quality products and services.", "options": {"A": "distinction", "B": "straightening", "C": "springs from", "D": "accomplishments"}, "answer": "C", "answerText": "springs from"}, {"sentence": "6) In the unfolding new round of scientific and technological revolution and industrial transformation, new things will inevitably emerge and _____ old ones.", "options": {"A": "to the detriment of", "B": "take the place of", "C": "got her hopes up", "D": "draws a distinction"}, "answer": "B", "answerText": "take the place of"}, {"sentence": "7) Highly anxious students tend to receive lower grades than do less anxious students, so if you want to _____ the exam and have a good result, try to remember the people in your life who always cheer on you.", "options": {"A": "amounts to", "B": "continuous", "C": "inaccurate", "D": "get through"}, "answer": "D", "answerText": "get through"}, {"sentence": "8) _____, we should double our efforts in improving socialist democracy to give free rein to the strengths of the socialist political system with Chinese characteristics.", "options": {"A": "warmth", "B": "fades into", "C": "In short", "D": "governed"}, "answer": "C", "answerText": "In short"}]}, {"id": "Unit 4", "label": "Unit 4", "labelFull": "Unit 4", "total": 23, "questions": [{"sentence": "9) The woman _____ the rope thrown by the security guard at last; otherwise she would be drowned.", "options": {"A": "seized on", "B": "arbitrary", "C": "surface", "D": "at his elbow"}, "answer": "A", "answerText": "seized on"}, {"sentence": "10) Although he was always a naughty boy, he had to learn to _____ at school where teachers and other students will not treat him as his parents do.", "options": {"A": "certainty", "B": "in large part", "C": "come to heel", "D": "scattered"}, "answer": "C", "answerText": "come to heel"}, {"sentence": "1) As athletes, they are well aware of the ethical _____ of rules.", "options": {"A": "more of", "B": "exotic", "C": "dimension", "D": "fades into"}, "answer": "C", "answerText": "dimension"}, {"sentence": "2) Unemployment can be _____ as the number of people who are willing and able to work, but who cannot find jobs.", "options": {"A": "ease", "B": "warmth", "C": "primarily", "D": "defined"}, "answer": "D", "answerText": "defined"}, {"sentence": "3) After retiring, she became involved in _____ service in the local community.", "options": {"A": "governed", "B": "voluntary", "C": "interrupted", "D": "come to heel"}, "answer": "B", "answerText": "voluntary"}, {"sentence": "4) Institutions of higher education can _____ a student of a degree if the applicant is involved in academic misconduct.", "options": {"A": "attest", "B": "deprive", "C": "earnest", "D": "drove off"}, "answer": "B", "answerText": "deprive"}, {"sentence": "5) In Britain, according to European Commission definitions, one in five people were _____ as poor.", "options": {"A": "certainty", "B": "fret", "C": "governed", "D": "classed"}, "answer": "D", "answerText": "classed"}, {"sentence": "6) What really is the _____ between friends and lovers is still an unanswered question.", "options": {"A": "distinguish", "B": "interrupted", "C": "distinction", "D": "counseled"}, "answer": "C", "answerText": "distinction"}, {"sentence": "7) The choice of players for the team seemed completely _____.", "options": {"A": "arbitrary", "B": "rescue", "C": "turn onto", "D": "attest"}, "answer": "A", "answerText": "arbitrary"}, {"sentence": "8) Knowledge does not _____ risky behavior. Ignorance does.", "options": {"A": "incur", "B": "governed", "C": "call out", "D": "surface"}, "answer": "A", "answerText": "incur"}, {"sentence": "9) Groups will also need to organize themselves and _____ different tasks in order to produce their newspaper by a strict deadline.", "options": {"A": "saves", "B": "fare well", "C": "delegate", "D": "potentially"}, "answer": "C", "answerText": "delegate"}, {"sentence": "10) If you've ever seen her dance, you would know that she didn't get the role by _____ luck.", "options": {"A": "In short", "B": "kind of", "C": "sheer", "D": "mount"}, "answer": "C", "answerText": "sheer"}, {"sentence": "11) It's true that parents may feel strained with a second child, but I can _____ that it gets easier after three, if only because you don't notice the additional craziness when you're already nuts.", "options": {"A": "attest", "B": "hardship", "C": "incur", "D": "work out"}, "answer": "A", "answerText": "attest"}, {"sentence": "12) This man has been cautious all his life, but he's _____ slipped occasionally.", "options": {"A": "conscious", "B": "lay claim to", "C": "nonetheless", "D": "dropped into"}, "answer": "C", "answerText": "nonetheless"}, {"sentence": "13) The program is _____ aimed at U.S. expatriates (侨民) in the Asia-Pacific region, although other nationalities can participate.", "options": {"A": "primarily", "B": "In short", "C": "scattered", "D": "cautioned"}, "answer": "A", "answerText": "primarily"}, {"sentence": "14) In the matter of the increase of its population alone, Budapest has only been slightly surpassed by one European city, _____, Berlin.", "options": {"A": "dilemma", "B": "surface", "C": "namely", "D": "stirred"}, "answer": "C", "answerText": "namely"}, {"sentence": "15) The posters stand out due to their _____ combination of winter sports action, Chinese cultural elements, landmarks of the host city and contemporary design.", "options": {"A": "deterioration", "B": "compelling", "C": "keep in mind", "D": "countered"}, "answer": "B", "answerText": "compelling"}, {"sentence": "1) To solve this complex problem, economists have to work _____ scientists.", "options": {"A": "lay claim to", "B": "pointing out", "C": "accounts for", "D": "in tandem with"}, "answer": "D", "answerText": "in tandem with"}, {"sentence": "2) If you _____ indoors, you can attach a device to your shoe and record your speed and the distance you travel.", "options": {"A": "delivery", "B": "turn onto", "C": "countered", "D": "work out"}, "answer": "D", "answerText": "work out"}, {"sentence": "3) These memories can _____ at any time and transform even the most mundane (平凡的) occasion into something special.", "options": {"A": "exotic", "B": "pop up", "C": "voyage", "D": "bare"}, "answer": "B", "answerText": "pop up"}, {"sentence": "4) He's _____ jealous that they have become such good friends.", "options": {"A": "kind of", "B": "fret", "C": "fare well", "D": "wipe"}, "answer": "A", "answerText": "kind of"}, {"sentence": "5) We don't have a secretary _____, but we do have a student who comes in to do a bit of filing (存档).", "options": {"A": "as such", "B": "primarily", "C": "adjust to", "D": "earnest"}, "answer": "A", "answerText": "as such"}, {"sentence": "6) _____ would we share your medical information with anyone. Don't worry.", "options": {"A": "By no means", "B": "in tandem with", "C": "is hard on", "D": "look around"}, "answer": "A", "answerText": "By no means"}]}, {"id": "Unit 5", "label": "Unit 5", "labelFull": "Unit 5", "total": 21, "questions": [{"sentence": "7) Denmark says it's planning to _____ a large area of the Arctic seabed (海床) including the North Pole, a region thought to be rich in oil and gas.", "options": {"A": "lay claim to", "B": "accounts for", "C": "accomplishments", "D": "drove off"}, "answer": "A", "answerText": "lay claim to"}, {"sentence": "8) The fact that they were expecting two babies instead of one made it _____ a challenge", "options": {"A": "exotic", "B": "Taking off", "C": "more of", "D": "sheer"}, "answer": "C", "answerText": "more of"}, {"sentence": "1) His victory in the election is almost a(n) _____ given his popularity among the voters.", "options": {"A": "certainty", "B": "incidence", "C": "work out", "D": "diagnosed"}, "answer": "A", "answerText": "certainty"}, {"sentence": "2) The book market, formerly a flourishing industry, has greatly declined in recent years, but efforts are now being made to _____ it.", "options": {"A": "earnest", "B": "bare", "C": "intervene", "D": "revive"}, "answer": "D", "answerText": "revive"}, {"sentence": "3) What motivates you to put on your backpack and travel a long way to a(n) _____ beach in a foreign country?", "options": {"A": "primarily", "B": "countered", "C": "exotic", "D": "dilemma"}, "answer": "C", "answerText": "exotic"}, {"sentence": "4) Linda used to _____ that she was wasting time learning the dialect.", "options": {"A": "dilemma", "B": "trigger", "C": "grumble", "D": "continuous"}, "answer": "C", "answerText": "grumble"}, {"sentence": "5) In the modern age, we have _____ transferred the competition to a new arena (竞争舞台): the business world.", "options": {"A": "adjust to", "B": "simply", "C": "fret", "D": "haste"}, "answer": "B", "answerText": "simply"}, {"sentence": "6) Last year, many overseas students were faced with the _____ of whether or not to return to their home country.", "options": {"A": "is hard on", "B": "saves", "C": "dilemma", "D": "countered"}, "answer": "C", "answerText": "dilemma"}, {"sentence": "7) _____ lies at the heart of Confucianism. Confucius believed all people needed to strive to embody (体现) Ren, which translates as \"human-heartedness.\" It means to approach others with courtesy (谦恭), unselfishness, and sympathy.", "options": {"A": "intervene", "B": "straightening", "C": "in strength", "D": "Compassion"}, "answer": "D", "answerText": "Compassion"}, {"sentence": "8) It was reported that in that emergent occasion every type of boat was called into service to _____ passengers from the sinking ferry.", "options": {"A": "intervene", "B": "professed", "C": "rescue", "D": "tremble"}, "answer": "C", "answerText": "rescue"}, {"sentence": "9) The runners might _____ any kind of weather, including freezing temperatures, fog, rain, or snow.", "options": {"A": "pointing out", "B": "regarding", "C": "encounter", "D": "stride"}, "answer": "C", "answerText": "encounter"}, {"sentence": "10) With a shortage of coffee reaching the market, coffee drinkers _____ have to pay more.", "options": {"A": "surface", "B": "straightening", "C": "potentially", "D": "inevitably"}, "answer": "D", "answerText": "inevitably"}, {"sentence": "11) The trip to the South Island of New Zealand was _____ by weeks of preparations.", "options": {"A": "as such", "B": "amounts to", "C": "surface", "D": "preceded"}, "answer": "D", "answerText": "preceded"}, {"sentence": "12) This _____ proved to be the most important to geography that had been undertaken since the first circumnavigation (环游) of the globe.", "options": {"A": "ingesting", "B": "classed", "C": "touted", "D": "voyage"}, "answer": "D", "answerText": "voyage"}, {"sentence": "13) The 1960s was a time of high unemployment and economic _____ in much of that area.", "options": {"A": "is hard on", "B": "apt to", "C": "hardship", "D": "countered"}, "answer": "C", "answerText": "hardship"}, {"sentence": "14) She greeted her old friends with genuine _____ and friendliness.", "options": {"A": "encounter", "B": "fret", "C": "cautioned", "D": "warmth"}, "answer": "D", "answerText": "warmth"}, {"sentence": "15) As part of a plan to increase _____ , visitors no longer need a visa.", "options": {"A": "rescue", "B": "incur", "C": "tourism", "D": "touted"}, "answer": "C", "answerText": "tourism"}, {"sentence": "1) How quickly we can finish the project depends _____ on when we get the payment through.", "options": {"A": "Compassion", "B": "lay claim to", "C": "in large part", "D": "is hard on"}, "answer": "C", "answerText": "in large part"}, {"sentence": "2) Tents have been set up _____ hospitals to handle the overflow during the pandemic in the area.", "options": {"A": "incidence", "B": "engulf", "C": "next to", "D": "simply"}, "answer": "C", "answerText": "next to"}, {"sentence": "3) Ever since she had learned of his castle in Scotland, Julia had started to see Henry _____.", "options": {"A": "take the place of", "B": "draws a distinction", "C": "in twos and threes", "D": "in a different light"}, "answer": "D", "answerText": "in a different light"}, {"sentence": "4) This discovery _____ between traditional theories on how mountains are found.", "options": {"A": "in twos and threes", "B": "take the place of", "C": "pulled away from", "D": "draws a distinction"}, "answer": "D", "answerText": "draws a distinction"}]}, {"id": "Unit 6", "label": "Unit 6", "labelFull": "Unit 6", "total": 20, "questions": [{"sentence": "5) We took a trip to Yellowstone National Park last autumn and _____ the awesome views.", "options": {"A": "surrendered ourselves to", "B": "in large part", "C": "earnest", "D": "touted"}, "answer": "A", "answerText": "surrendered ourselves to"}, {"sentence": "6) Such lack of detail also _____ the band _____ giving away too much about themselves.", "options": {"A": "kind of", "B": "saves", "C": "peer", "D": "deprive"}, "answer": "B", "answerText": "saves"}, {"sentence": "6) Such lack of detail also _____ the band _____ giving away too much about themselves.", "options": {"A": "from", "B": "bare", "C": "defined", "D": "earnest"}, "answer": "A", "answerText": "from"}, {"sentence": "1) Health officials _____ the public to wash fruit thoroughly before eating it, because traces (少许) of dangerous poison had been discovered on samples from local markets.", "options": {"A": "turn onto", "B": "warmth", "C": "work out", "D": "cautioned"}, "answer": "D", "answerText": "cautioned"}, {"sentence": "2) Doubts are beginning to _____ about whether the right decision has been made on that complex matter.", "options": {"A": "pop up", "B": "steady", "C": "surface", "D": "voyage"}, "answer": "C", "answerText": "surface"}, {"sentence": "3) Even a tin can with an inch of water in it can be the birthplace of hundreds of hungry and _____ dangerous mosquitoes.", "options": {"A": "adjust to", "B": "professed", "C": "amounts to", "D": "potentially"}, "answer": "D", "answerText": "potentially"}, {"sentence": "4) If you message the phrase \"Happy Birthday!\" in WeChat, you will _____ the birthday cake emoji to fly up the screen.", "options": {"A": "voluntary", "B": "compelling", "C": "trigger", "D": "encounter"}, "answer": "C", "answerText": "trigger"}, {"sentence": "5) Despite the passage of time and changing social norms, the _____ of discrimination and inequality remains a pressing issue in many societies.", "options": {"A": "look around", "B": "persistence", "C": "potentially", "D": "inaccurate"}, "answer": "B", "answerText": "persistence"}, {"sentence": "6) New missions and tasks of the new era require us to develop new concepts, designs and strategies _____ technological innovation.", "options": {"A": "hardship", "B": "generosity", "C": "regarding", "D": "diagnosed"}, "answer": "C", "answerText": "regarding"}, {"sentence": "7) Our research is not complete, so these figures are somewhat _____.", "options": {"A": "fades into", "B": "tend to", "C": "scattered", "D": "inaccurate"}, "answer": "D", "answerText": "inaccurate"}, {"sentence": "8) We must _____ and improve macro (宏观的) control by the government, improve market rules, and tighten discipline.", "options": {"A": "dimension", "B": "hardship", "C": "work out", "D": "strengthen"}, "answer": "D", "answerText": "strengthen"}, {"sentence": "9) Consultative democracy (协商民主) is a unique form of Chinese socialist democracy. It comes from the _____ innovations in China political system since the adoption of reform and opening up.", "options": {"A": "continuous", "B": "at his elbow", "C": "surface", "D": "inaccurate"}, "answer": "A", "answerText": "continuous"}, {"sentence": "10) Both of his parents had drug _____ problems, so he was in and out of foster care (代养), but he was living with his mother at the time of the crime.", "options": {"A": "attest", "B": "addiction", "C": "tourism", "D": "springs from"}, "answer": "B", "answerText": "addiction"}, {"sentence": "11) The effects of job losses in manufacturing were _____ by the creation of more jobs in the service industries.", "options": {"A": "look around", "B": "pointing out", "C": "countered", "D": "moderate"}, "answer": "C", "answerText": "countered"}, {"sentence": "12) Last year, I was _____ with depression, and I started on my first round of medication, and I could not focus on the game at all.", "options": {"A": "fare well", "B": "inevitably", "C": "tremble", "D": "diagnosed"}, "answer": "D", "answerText": "diagnosed"}, {"sentence": "1) He was like a person who had been somewhere that other people are not likely to go or had done something that others are not _____ do.", "options": {"A": "apt to", "B": "haste", "C": "adjust to", "D": "professed"}, "answer": "A", "answerText": "apt to"}, {"sentence": "2) I am struggling to _____ a normal routine after studying day and night for a whole year preparing for the entrance examination.", "options": {"A": "fare well", "B": "is up to", "C": "settle into", "D": "dismissed"}, "answer": "C", "answerText": "settle into"}, {"sentence": "3) Their idea is to make as much money as possible from news departments, sometimes _____ truth and journalism.", "options": {"A": "got her hopes up", "B": "pulled away from", "C": "to the detriment of", "D": "in a different light"}, "answer": "C", "answerText": "to the detriment of"}, {"sentence": "4) The Constitution must _____ new circumstances, draw on new experiences and affirm new achievements, so as to maintain ever-lasting vitality (生命力).", "options": {"A": "simply", "B": "accounts for", "C": "attest", "D": "adjust to"}, "answer": "D", "answerText": "adjust to"}, {"sentence": "5) All Party members should _____ that what we build is socialism with Chinese characteristics, and nothing else. History has not ended and will not end.", "options": {"A": "come to heel", "B": "get through", "C": "sponsoring", "D": "keep in mind"}, "answer": "D", "answerText": "keep in mind"}]}], "totalAll": 133};
+
+// ===== STATE =====
+let currentQuestions = [];   // shuffled questions for current session
+let currentIndex = 0;
+let answers = [];           // null/true/false per question
+let selectedLetters = [];   // which letter user picked
+let isAnimating = false;    // guard against rapid nav clicks
+let autoAdvanceTimer = null; // timer for correct-answer auto-advance
+
+// ===== DOM CACHE =====
+let els = {};
+
+// ===== UTILS =====
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Shuffle options within a question
+function shuffleOptions(q) {
+  const letters = ['A','B','C','D'];
+  const shuffled = shuffle(letters);
+  const newOptions = {};
+  shuffled.forEach((ltr, idx) => {
+    newOptions[letters[idx]] = q.options[ltr];
+  });
+  // Find where answer moved
+  const newAnswer = letters[shuffled.indexOf(q.answer)];
+  return {
+    sentence: q.sentence,
+    options: newOptions,
+    answer: newAnswer,
+    answerText: q.answerText
+  };
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  els.tocPage = document.getElementById('tocPage');
+  els.quizArea = document.getElementById('quizArea');
+  els.unitGrid = document.getElementById('unitGrid');
+  els.card = document.getElementById('card');
+  els.sentenceEl = document.getElementById('sentenceEl');
+  els.optionsEl = document.getElementById('optionsEl');
+  els.feedbackEl = document.getElementById('feedbackEl');
+  els.summaryWrap = document.getElementById('summaryWrap');
+  els.prevBtn = document.getElementById('prevBtn');
+  els.nextBtn = document.getElementById('nextBtn');
+  els.hintEl = document.getElementById('hintEl');
+  els.progressFill = document.getElementById('progressFill');
+  els.progressText = document.getElementById('progressText');
+  els.scoreBadge = document.getElementById('scoreBadge');
+  els.navRow = document.getElementById('navRow');
+
+  buildToc();
+
+  // Bind nav buttons with addEventListener for reliability
+  els.prevBtn.addEventListener('click', prevQuestion);
+  els.nextBtn.addEventListener('click', nextQuestion);
+
+  document.addEventListener('keydown', (e) => {
+    if (els.quizArea.style.display === 'none') return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); prevQuestion(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); nextQuestion(); }
+  });
+
+  // Touch swipe
+  let touchX = 0;
+  els.card.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+  els.card.addEventListener('touchend', e => {
+    const diff = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(diff) > 60) { diff < 0 ? nextQuestion() : prevQuestion(); }
+  });
+});
+
+// ===== TOC =====
+function buildToc() {
+  let html = '';
+  DATA.units.forEach(u => {
+    html += `<div class="unit-card" onclick="startUnit('${u.id}')">
+      <div class="unit-title">${u.labelFull}</div>
+      <div class="unit-count">${u.total} 题</div>
+    </div>`;
+  });
+  // "All" card
+  html += `<div class="unit-card all-card" onclick="startAll()">
+    <div class="unit-title">全部题目</div>
+    <div class="unit-count">${DATA.totalAll} 题随机</div>
+  </div>`;
+  els.unitGrid.innerHTML = html;
+}
+
+function startUnit(unitId) {
+  const unit = DATA.units.find(u => u.id === unitId);
+  if (!unit) return;
+  currentQuestions = shuffle(unit.questions).map(shuffleOptions);
+  startQuiz();
+}
+
+function startAll() {
+  const allQs = [];
+  DATA.units.forEach(u => allQs.push(...u.questions));
+  currentQuestions = shuffle(allQs).map(shuffleOptions);
+  startQuiz();
+}
+
+function startQuiz() {
+  currentIndex = 0;
+  answers = new Array(currentQuestions.length).fill(null);
+  selectedLetters = new Array(currentQuestions.length).fill(null);
+  isAnimating = false;
+  if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+
+  els.tocPage.style.display = 'none';
+  els.quizArea.style.display = 'block';
+  els.summaryWrap.style.display = 'none';
+  els.card.style.display = 'block';
+  els.navRow.style.display = 'flex';
+  els.scoreBadge.style.display = 'none';
+
+  renderQuestion();
+  updateProgress();
+}
+
+function goToToc() {
+  els.tocPage.style.display = 'block';
+  els.quizArea.style.display = 'none';
+}
+
+// ===== RENDER =====
+function renderQuestion() {
+  const q = currentQuestions[currentIndex];
+  const answered = answers[currentIndex];
+
+  // Sentence
+  let sentHtml = q.sentence.replace(/_____/g,
+    '<span class="blank' +
+    (answered === true ? ' filled' : (answered === false ? ' filled-wrong' : '')) +
+    '">______</span>');
+  els.sentenceEl.innerHTML = sentHtml;
+
+  // Options
+  const letters = ['A','B','C','D'];
+  let optHtml = '';
+  for (const l of letters) {
+    let cls = 'option-btn';
+    let dis = '';
+    if (answered !== null) {
+      dis = ' disabled';
+      if (l === q.answer) {
+        cls += ' correct';
+      } else if (l === selectedLetters[currentIndex]) {
+        cls += ' wrong';
+      } else if (answered === false && l === q.answer) {
+        cls += ' reveal-correct';
+      }
+    }
+    optHtml += `<button class="${cls}${dis}" data-letter="${l}"
+      onclick="selectAnswer('${l}')"><span class="letter">${l}</span><span>${q.options[l]}</span></button>`;
+  }
+  els.optionsEl.innerHTML = optHtml;
+
+  // Feedback
+  if (answered === true) showFeedback(true);
+  else if (answered === false) showFeedback(false);
+  else { els.feedbackEl.className = 'feedback'; els.feedbackEl.textContent = ''; }
+
+  updateNav();
+  updateProgress();
+}
+
+function selectAnswer(letter) {
+  if (answers[currentIndex] !== null) return;
+  const q = currentQuestions[currentIndex];
+  const correct = (letter === q.answer);
+
+  answers[currentIndex] = correct;
+  selectedLetters[currentIndex] = letter;
+
+  // Update buttons
+  els.optionsEl.querySelectorAll('.option-btn').forEach(btn => {
+    btn.classList.add('disabled');
+    const bl = btn.getAttribute('data-letter');
+    if (bl === letter && !correct) btn.classList.add('wrong');
+    if (bl === q.answer) btn.classList.add('correct');
+  });
+
+  showFeedback(correct);
+  updateProgress();
+
+  // Only auto-advance on correct answer; wrong answer waits for manual advance
+  if (correct) {
+    autoAdvanceTimer = setTimeout(() => {
+      if (currentIndex < currentQuestions.length - 1) nextQuestion();
+      else checkAllDone();
+    }, 200);
+  }
+}
+
+function showFeedback(correct) {
+  els.feedbackEl.className = 'feedback show ' + (correct ? 'correct-fb' : 'wrong-fb');
+  if (correct) {
+    els.feedbackEl.textContent = '✓ 正确！';
+  } else {
+    const q = currentQuestions[currentIndex];
+    els.feedbackEl.textContent = '✗ 错误。正确答案是 ' + q.answer + '. ' + q.answerText;
+  }
+}
+
+// ===== NAV =====
+function prevQuestion() {
+  if (isAnimating || currentIndex <= 0) return;
+  // Cancel any pending auto-advance from previous correct answer
+  if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  isAnimating = true;
+  animateCard(-1, () => {
+    currentIndex--;
+    isAnimating = false;
+    renderQuestion();
+  });
+}
+
+function nextQuestion() {
+  if (isAnimating) return;
+  if (currentIndex >= currentQuestions.length - 1) { checkAllDone(); return; }
+  // Cancel any pending auto-advance from previous correct answer
+  if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  isAnimating = true;
+  animateCard(1, () => {
+    currentIndex++;
+    isAnimating = false;
+    renderQuestion();
+  });
+}
+
+function animateCard(dir, cb) {
+  els.card.classList.remove('slide-in');
+  els.card.classList.add(dir > 0 ? 'slide-left' : 'slide-right');
+  setTimeout(() => {
+    cb();
+    els.card.classList.remove('slide-left', 'slide-right');
+    els.card.classList.add('slide-in');
+  }, 280);
+}
+
+function updateNav() {
+  els.prevBtn.disabled = (currentIndex === 0);
+  if (currentIndex >= currentQuestions.length - 1) {
+    els.nextBtn.textContent = '查看结果 →';
+  } else {
+    els.nextBtn.textContent = '下一题 →';
+  }
+}
+
+function checkAllDone() {
+  if (answers.every(a => a !== null) || currentIndex >= currentQuestions.length - 1) {
+    showSummary();
+  }
+}
+
+function updateProgress() {
+  const answeredCount = answers.filter(a => a !== null).length;
+  const pct = (answeredCount / currentQuestions.length) * 100;
+  els.progressFill.style.width = pct + '%';
+  els.progressText.textContent = (currentIndex + 1) + ' / ' + currentQuestions.length;
+  const correctCount = answers.filter(a => a === true).length;
+  if (correctCount > 0) {
+    els.scoreBadge.style.display = 'inline';
+    els.scoreBadge.textContent = '✓ ' + correctCount;
+  } else {
+    els.scoreBadge.style.display = 'none';
+  }
+}
+
+// ===== SUMMARY =====
+function showSummary() {
+  const total = currentQuestions.length;
+  const correct = answers.filter(a => a === true).length;
+  const wrong = answers.filter(a => a === false).length;
+  const pct = Math.round((correct / total) * 100);
+
+  let emoji, msg;
+  if (pct >= 90)      { emoji = '🏆'; msg = '太棒了！'; }
+  else if (pct >= 75) { emoji = '🎉'; msg = '表现不错！'; }
+  else if (pct >= 60) { emoji = '💪'; msg = '继续加油！'; }
+  else                 { emoji = '📚'; msg = '多多练习！'; }
+
+  els.summaryWrap.innerHTML = `<div class="summary">
+    <div class="summary-icon">${emoji}</div>
+    <h2>${msg}</h2>
+    <div class="summary-score">${pct}%</div>
+    <div class="summary-stats">
+      <div class="stat-box correct-stat"><div class="stat-num">${correct}</div><div class="stat-label">正确</div></div>
+      <div class="stat-box wrong-stat"><div class="stat-num">${wrong}</div><div class="stat-label">错误</div></div>
+      <div class="stat-box total-stat"><div class="stat-num">${total}</div><div class="stat-label">总题数</div></div>
+    </div>
+    <div class="summary-actions">
+      <button class="nav-btn" onclick="retryQuiz()">重新开始</button>
+      <button class="nav-btn primary" onclick="goToToc()">返回目录</button>
+    </div>
+  </div>`;
+
+  els.summaryWrap.style.display = 'block';
+  els.card.style.display = 'none';
+  els.navRow.style.display = 'none';
+  els.feedbackEl.className = 'feedback';
+  els.progressFill.style.width = '100%';
+  els.progressText.textContent = total + ' / ' + total;
+}
+
+function retryQuiz() {
+  // Re-shuffle
+  if (currentQuestions.length === DATA.totalAll) {
+    // was "all" mode
+    const allQs = [];
+    DATA.units.forEach(u => allQs.push(...u.questions));
+    currentQuestions = shuffle(allQs).map(shuffleOptions);
+  } else {
+    // was unit mode - find which unit
+    for (const u of DATA.units) {
+      if (u.questions.length === currentQuestions.length) {
+        currentQuestions = shuffle(u.questions).map(shuffleOptions);
+        break;
+      }
+    }
+  }
+  currentIndex = 0;
+  answers = new Array(currentQuestions.length).fill(null);
+  selectedLetters = new Array(currentQuestions.length).fill(null);
+  isAnimating = false;
+  if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  els.summaryWrap.style.display = 'none';
+  els.card.style.display = 'block';
+  els.navRow.style.display = 'flex';
+  els.scoreBadge.style.display = 'none';
+  renderQuestion();
+  updateProgress();
+}
+</script>
+</body>
+</html>
